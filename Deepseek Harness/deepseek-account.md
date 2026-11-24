@@ -22,3 +22,17 @@ The event JSDoc carries description, `@mode emit` and `@param outcome` because t
 - `packages/credentials/deepseek-account/src/index.ts:DeepSeekAccount::sharedNotificationRead` - joins an in-flight list read when the grant, lifetime and client headers all match, and clears the slot when that read settles, so it never serves a finished response from memory.
 - `packages/credentials/deepseek-account/src/index.ts:DeepSeekAccount::getNotifications` - uses the shared read, so repeated settings refreshes produce one account request at a time per grant and locale.
 - The client-side controller still starts a new read on every refresh and fences the superseded reply; `ui-account-notifications` tests pin that a refresh does not wait for an earlier read, so the client does not coalesce. The superseded RPC still completes on the Host, which is bounded by the request timeout.
+
+## Notification reads are cancellable (findings 382, 384, remaining part)
+
+### `packages/credentials/deepseek-account/src/index.ts:DeepSeekAccount::getNotifications`
+Takes a trailing `signal` (Typert forwards cancellation only for a parameter named `signal` typed as the global `AbortSignal`). The caller's signal ends that caller's wait and, through `sharedNotificationRead`, its claim on the shared account request. A cancelled caller returns null instead of an error because the client that cancelled it has already discarded the reply.
+
+### `packages/credentials/deepseek-account/src/index.ts:DeepSeekAccount::getNotificationContent`
+Takes a trailing `signal` and adds it to the request signal, so a content read abandoned by a newer language generation or sign-out stops its account request instead of running to the request timeout.
+
+### `packages/credentials/deepseek-account/src/index.ts:DeepSeekAccount::sharedNotificationRead`
+The shared request now has its own controller and a count of joined callers. A caller leaving does not abort the request while another caller still waits (another window, or the refresh that replaced the cancelled poll with the same grant and headers); the request aborts only when the last caller has left, and the slot is cleared at once so a caller arriving after that starts a fresh request instead of joining one that is being cancelled.
+
+### `packages/credentials/deepseek-account/src/notifications.ts:readNotifications`
+The list is cut to the first `MAX_NOTIFICATIONS` (50) valid, distinct entries in server order (finding 382). Notifications past the cap stay unconsumed on the server and are offered by a later poll once earlier ones are consumed or expire, so no notice is lost, only deferred. This replaces the earlier decision to leave the card count unbounded: the cap bounds the content refresh fan-out, the card list and the per-card scan, and a signed-in user sees one foreground card at a time anyway.

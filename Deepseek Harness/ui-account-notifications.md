@@ -9,3 +9,14 @@
 
 - `packages/client/ui-account-notifications/src/client/notification-controller.ts:createNotificationController::refreshContent` - runs at most four content reads at once and publishes each completed update as it arrives, so one slow card does not hold back the others; a newer language generation stops new reads from starting, while requests already in flight are fenced by the generation check when they settle.
 - The card count is not capped on the client: the server owns unconsumed notifications, and the stack shows only live cards, so a cap would hide server-owned notices. This remains a documented limit.
+
+## Superseded reads are cancelled (findings 382, 384, remaining part)
+
+### `packages/client/ui-account-notifications/src/client/notification-controller.ts:createNotificationController::restartPolling`
+Each poll owns an AbortController. `stopPolling` aborts it, so a refresh or sign-out cancels the list read of the poll it replaces instead of only fencing the reply. The generation check stays for replies that settle anyway. The replacing read is issued after the abort, so on the Host it joins no request that is being cancelled.
+
+### `packages/client/ui-account-notifications/src/client/notification-controller.ts:createNotificationController::refreshContent`
+Each content generation owns an AbortController. A newer language generation, a lifecycle end, and the next refresh abort the previous generation's in-flight content reads, so repeated language changes leave at most one generation's four reads in flight rather than four per change. An aborted read is not counted as a failure and does not log.
+
+### `packages/client/ui-account-notifications/src/client/index.ts:apply`
+`read` and `readContent` pass the controller's signal to the Remote call, which cancels the Host request.

@@ -73,3 +73,15 @@ Finding 345, strict O(path): both hops (`liveCreationParent` and `inspectCreatio
 ### `packages/subagent/subagent/tests/ancestry-index.spec.ts`
 
 Finding 345: the live and dormant ancestry tests replace `Host::catalogOf` with a view whose `head` throws on access. A path that falls back to scanning the list fails them. They replace the earlier assertion that the catalog was read at most once.
+
+### `packages/subagent/subagent/src/manager.ts:SubagentManager::inspectCreationParent`
+
+Finding 345, dormant hop. A creator that is not live is first resolved from its cached `subagentCatalog` and `subagent` checkpoint rows through `SessionQueryEngine::inspectCheckpoint`, with no persistence log read and no prepared Session. Only the keyed child index of the stored row is touched. A checkpoint is never authority: it may lag the log (the detach write is fire-and-forget, a crash can leave it behind), so it can prove that a child is present but never that one is absent. The fast path therefore answers only when the child is found in the row, and the row's own descriptor identity is usable. Every other case takes the previous full path, `SessionQueryEngine::inspectSession`, which loads and folds the creator's log: no cache service, no lifecycle-matching record, a row whose `ver` is not the unit's `stateVersion` (a version-7 catalog row), a malformed or mismatched row, a child absent from the row, or an identity the row cannot vouch for. The fallback is also what raises UNAUTHORIZED for a child that is truly absent from its creator's catalog.
+
+### `packages/subagent/subagent/src/creation-checkpoint.ts:creationParentFromCheckpoint`
+
+Finding 345, dormant hop. The catalog lookup walks only the raw hash path of the stored `children` trie (`trieGet` is total over unchecked input), so a hop costs the trie depth and not the catalog size; the full `stateSchema` parse is not run because it validates the whole chunked list and both tries on every hop. A malformed node reads as absent and therefore falls back. The row's `inheritedEventCount` must equal the cut recorded in the cache identity. The creator's identity is trusted only from the `subagent` row of the same record at the same watermark or later (the identity is last-wins, so an older watermark could be superseded) and only when it is the creator's own descriptor (`seq` at or after the inherited cut). A creator with no parent session needs no identity because the ancestry walk stops there. Residual: a row that is ahead of a crash-truncated log cannot be detected without reading the log; the cache's flush-before-put barrier in `SessionProjectionCache::write` is what rules it out.
+
+### `packages/subagent/subagent/src/keyed-trie.ts:trieGet`
+
+Finding 345: `trieGet` reads untrusted stored JSON on the dormant hop, so it checks the shape at every step (object slot, leaf array, string value) and returns undefined for anything else instead of throwing.

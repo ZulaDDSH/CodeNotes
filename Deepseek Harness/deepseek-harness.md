@@ -1054,6 +1054,18 @@ Upgrade guides require the Change and Migration sections and are limited to 500 
 - `params.provider`: Provider identifier to check.
 - `returns`: Whether the named credential is unconfigured; false when no named reference exists.
 
+### `packages/session-query/session-query/src/index.ts:SessionQueryEngine.inspectCheckpoint`
+- `description`: Read a detached Session's cached projection rows without loading or folding its log; a live Session, an unmounted cache, or an unmatched record yields undefined and the caller then uses inspectSession.
+- `params.sessionId`: Logical Session identity.
+- `params.read`: Synchronous getter over the stored rows and inherited cut; it must not mutate or retain them and may return undefined to decline.
+- `params.signal`: Cancellation of the header read.
+- `returns`: The getter's value, or undefined when no cached rows apply.
+
+### `packages/session/session-projection-cache/src/index.ts:SessionProjectionCache.cachedRows`
+- `description`: Return the stored checkpoint rows and inherited cut of the record bound to a header's lifecycle, without running any wire view; the rows are the cache's own state and must not be mutated.
+- `params.meta`: Stored Session header used as the lifecycle identity witness.
+- `returns`: The rows and inherited cut, or undefined when no usable record exists or a seeded header's record stores no cut.
+
 ## scripts/gen-config-catalog.ts:pasteText
 
 The configuration catalog fills missing field descriptions from anchored code notes and still reports missing descriptions as violations.

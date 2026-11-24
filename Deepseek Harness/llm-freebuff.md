@@ -118,8 +118,8 @@ The live Credential Manager blob on Windows was checked by shape only and is the
 
 ### `packages/llm/llm-freebuff/src/session.ts:Mutex.acquire`
 
-Serialises the spawn and first-submit of new chats so the new chat folder can be matched to its prompt. A waiter races the previous holder against its own abort signal, so an aborted turn stops waiting at once. Its slot is still released only after the previous holder finishes, so the lock stays exclusive.
+Serialises the spawn and first-submit of new chats so the new chat folder can be matched to its prompt. A waiter races the previous holder against its own abort signal, so an aborted turn stops waiting at once. An already aborted signal throws before the lock is touched. Its slot is still released only after the previous holder finishes, so the lock stays exclusive.
 
 ### `packages/llm/llm-freebuff/src/session.ts:FreebuffSession.drive`
 
-A screen is treated as the signed-out screen only when `loginRequired` is true and `ready` is false. An answer that ends with "run this command to login:" matches a login marker, but every answer screen also shows the ready footer, while the real login screen does not.
+The screen state `signedOut` is true for the strong markers ("Press ENTER to login", "Waiting for login", "Please log in again") wherever they appear in the status rows, and for the generic `to login:` marker only when the ready footer is absent. An answer that ends with "run this command to login:" matches the generic marker, but every answer screen shows the ready footer, while the real login screen does not.

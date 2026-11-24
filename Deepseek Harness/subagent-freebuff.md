@@ -2,7 +2,7 @@
 
 ### `packages/subagent/subagent-freebuff/src/run.ts:startFreebuffRun`
 
-`classifyScreen` reports `loginRequired` when a login marker such as `to login:` appears in the bottom rows, which an answer that ends with "run this command to login:" also does. The run therefore treats the login screen as signed out only when `loginRequired` is true and `ready` is false: the real login screen has no `/model to change` or `for history` footer, while every answer screen has one.
+`classifyScreen` reports `signedOut` for the strong login markers ("Press ENTER to login", "Waiting for login", "Please log in again") even when the ready footer is on screen, and for the generic `to login:` marker only when the ready footer is absent, because an answer that ends with "run this command to login:" also matches it. The run uses `signedOut`, not `loginRequired`, at both login checks.
 
 Drives the installed `freebuff` binary, an interactive OpenTUI application with no prompt argument, one-shot mode, ACP mode or server mode, through `ctx.subprocess.spawnTerminal`. It waits for the ready screen, pastes the task with bracketed-paste markers so embedded newlines do not submit early, presses Enter, and waits for the turn to end. The Freebuff SDK is not used: Freebuff keeps its token in the OS keychain on purpose and refuses use through the SDK, so the provider never reads, copies or proxies any credential.
 

@@ -8,3 +8,7 @@
 - `packages/api/quota-controller/src/index.ts:QuotaController.cancelForCredential` - a `credentials/reference-updated` or `credentials/record-updated` event cancels the pending read of every built-in provider that names that reference or record key, so a credential change never presents the previous credential's read as a fresh one. Registered sources are not matched to credential events because their ids are not credential keys; they are invalidated by disposal only (pi-ai re-registers them when the account changes).
 - `packages/api/quota-controller/src/index.ts:QuotaControllerInternals` - `timeoutMs` is the whole-read deadline (credential lookup plus HTTP request), default 30000 ms; it is an injectable test and deployment hook, not a settings field.
 - `packages/api/quota-controller/src/index.ts:Pending` - one in-flight read: the target it was started for, the shared result promise, and `cancel`, which aborts the signal bound into the source's `fetch` and resolves the result with an unavailable outcome.
+
+### `packages/api/quota-controller/src/types.ts:QuotaWindowId`
+
+`daily` is an allowance that resets once a day and is quoted in provider-formatted hours (`QuotaWindow.valueLabel`), not as a rolling window. The first user is the Freebuff quota source in `packages/llm/llm-freebuff/src/quota.ts:quotaWindows`. It sits between `5h` and `weekly` in the drawing order. `credits` stays for unbounded balances with no percentage.

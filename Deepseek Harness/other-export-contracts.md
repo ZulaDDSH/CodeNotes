@@ -1099,13 +1099,6 @@
 - `description`: Throws an image-queue-full error when admitting these tasks would exceed the waiting line's task or byte bound.
 - `params.sizes`: Input byte sizes of the tasks to admit; only those beyond the free slots would wait.
 
-### `packages/attachment/attachment-local/src/file-store.ts:verifiedStoredFilePath`
-- `description`: Returns the stored file's path when it still matches the reference's size and SHA-256 digest, caching the verified identity so unchanged files are not rehashed; returns undefined when the file is missing or does not match.
-- `params.root`: Root directory of the verbatim file store.
-- `params.ref`: File reference whose stored object is checked.
-- `params.maxVerifyBytes`: Largest file size, in bytes, that is hashed synchronously when its identity is not cached; larger uncached files get no path.
-- `returns`: The verified path, or undefined.
-
 ### `packages/client/ui-chat/src/client/contract/outline.ts:OutlinePage`
 - `description`: One wire page of a Session outline: raw entries, whether older history remains, and the sequence to continue before.
 
@@ -1589,3 +1582,50 @@
 
 ### `packages/llm/llm-freebuff/src/session.ts:FreebuffPool.dispose`
 - `description`: Terminates every terminal and stops idle reaping.
+
+### `packages/attachment/attachment-local/src/file-store.ts:ensureFileReference`
+- `description`: Validates a file reference's identity and display name and extracts its SHA-256 digest; throws INVALID_ATTACHMENT_REF when either is malformed.
+- `params.ref`: File reference to validate.
+- `returns`: The lowercase hex SHA-256 digest of the referenced bytes.
+
+### `packages/attachment/attachment-local/src/host-file.ts:handoffStoredFile`
+- `description`: Copies a stored file into a private read-only handoff directory, hashing the bytes while copying from one descriptor, and returns the copy path only when the digest and recorded length match; reuses an earlier copy while its descriptor identity is unchanged.
+- `params.root`: Root directory of the versioned attachment store.
+- `params.ref`: File reference whose stored object is copied.
+- `params.maxBytes`: Largest file size, in bytes, that is copied; larger files get no path.
+- `params.directory`: Private per-store handoff directory that receives the copy.
+- `returns`: The verified copy path, or undefined when the file is missing, oversized, resized, or fails its digest.
+
+### `packages/attachment/attachment-local/src/host-file.ts:releaseHandoffs`
+- `description`: Forgets the recorded copy identities below a handoff directory and removes the directory with its copies.
+- `params.directory`: Handoff directory owned by the unloading store.
+
+### `packages/attachment/attachment-local/src/host-file.ts:reclaimAbandonedHandoffs`
+- `description`: Removes handoff directories whose owning process, named by the directory prefix, has exited; never touches a live or current-process directory.
+- `params.handoffRoot`: Directory that holds the per-process handoff directories.
+
+### `packages/attachment/attachment-local/src/host-file.ts:readStoredHostFile`
+- `description`: Reads a path inside the attachment store through one descriptor and returns the bytes only when they hash to the digest the path names; resolves undefined for a path outside the store.
+- `params.root`: Root directory of the versioned attachment store.
+- `params.hostPath`: Absolute host path to read.
+- `params.maxBytes`: Largest file size, in bytes, that is read; a larger file rejects with FILE_TOO_LARGE.
+- `params.signal`: Optional cancellation for the read.
+- `returns`: The verified bytes, or undefined when the path is not a store path.
+
+### `packages/attachment/attachment-local/src/store.ts:ownerIsAlive`
+- `description`: Reports whether a process id may still be running; a permission failure counts as alive so a live writer is never reclaimed.
+- `params.pid`: Process id parsed from a staging or handoff name.
+- `returns`: False only when the process does not exist.
+
+### `packages/attachment/attachment/src/index.ts:AttachmentStore.readHostFile`
+- `description`: Returns the integrity-verified bytes of a host path this backend owns, opened and hashed through one descriptor; backends that own no host files answer undefined.
+- `params.hostPath`: Absolute host path a reader is about to open.
+- `params.maxBytes`: Largest file size, in bytes, the caller accepts.
+- `params.signal`: Optional cancellation for backend reads.
+- `returns`: The verified bytes, or undefined when the path is not one of this backend's files.
+
+### `packages/fs/fs-local/src/fsio.ts:decodeWholeText`
+- `description`: Rejects bytes with a NUL in the leading sample as binary and decodes the rest as UTF-8, the way a whole-file text read does.
+- `params.raw`: Complete file bytes.
+- `params.target`: Target named in error messages.
+- `returns`: The decoded text.

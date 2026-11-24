@@ -1596,12 +1596,20 @@
 - `params.directory`: Private per-store handoff directory that receives the copy.
 - `returns`: The verified copy path, or undefined when the file is missing, oversized, resized, or fails its digest.
 
+### `packages/attachment/attachment-local/src/host-file.ts:handoffStoredImage`
+- `description`: Copies a stored normalized image object into the private read-only handoff directory under the same one-descriptor hash-while-copying rule as `handoffStoredFile` and returns the copy path, named by digest and media-type extension.
+- `params.root`: Root directory of the versioned attachment store.
+- `params.ref`: Normalized image reference whose object is copied.
+- `params.maxBytes`: Largest object size, in bytes, that is copied; larger objects get no path.
+- `params.directory`: Private per-store handoff directory that receives the copy.
+- `returns`: The verified copy path, or undefined when the object is missing, oversized, resized, or fails its digest.
+
 ### `packages/attachment/attachment-local/src/host-file.ts:releaseHandoffs`
 - `description`: Forgets the recorded copy identities below a handoff directory and removes the directory with its copies.
 - `params.directory`: Handoff directory owned by the unloading store.
 
 ### `packages/attachment/attachment-local/src/host-file.ts:reclaimAbandonedHandoffs`
-- `description`: Removes handoff directories whose owning process, named by the directory prefix, has exited; never touches a live or current-process directory.
+- `description`: Removes handoff directories whose owning process, named by the directory prefix, has exited; never touches a directory of a live owner or one this process registered by copying into it.
 - `params.handoffRoot`: Directory that holds the per-process handoff directories.
 
 ### `packages/attachment/attachment-local/src/host-file.ts:readStoredHostFile`
@@ -1629,3 +1637,8 @@
 - `params.raw`: Complete file bytes.
 - `params.target`: Target named in error messages.
 - `returns`: The decoded text.
+
+### `packages/attachment/attachment-local/src/store.ts:ensureReference`
+- `description`: Validates a normalized image reference's identity and extracts its SHA-256 digest; throws INVALID_ATTACHMENT_REF when it is malformed.
+- `params.ref`: Normalized image reference to validate.
+- `returns`: The lowercase hex SHA-256 digest of the referenced bytes.

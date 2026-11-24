@@ -19,4 +19,4 @@ Each poll owns an AbortController. `stopPolling` aborts it, so a refresh or sign
 Each content generation owns an AbortController. A newer language generation, a lifecycle end, and the next refresh abort the previous generation's in-flight content reads, so repeated language changes leave at most one generation's four reads in flight rather than four per change. An aborted read is not counted as a failure and does not log.
 
 ### `packages/client/ui-account-notifications/src/client/index.ts:apply`
-`read` and `readContent` pass the controller's signal to the Remote call, which cancels the Host request.
+`read` and `readContent` pass the controller's signal to the Remote call, which cancels the Host request. A Remote call that takes a `signal` parameter is exempt from the gateway's unary deadline (`packages/api/gateway/tests/unary-deadline.client.spec.ts`), so `withDeadline` combines the controller signal with `AbortSignal.timeout(30_000)`; without it a never-answered request would hold its poll forever and polling would never resume.

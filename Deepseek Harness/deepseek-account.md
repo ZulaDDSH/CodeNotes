@@ -32,6 +32,8 @@ Takes a trailing `signal` (Typert forwards cancellation only for a parameter nam
 Takes a trailing `signal` and adds it to the request signal, so a content read abandoned by a newer language generation or sign-out stops its account request instead of running to the request timeout.
 
 ### `packages/credentials/deepseek-account/src/index.ts:DeepSeekAccount::sharedNotificationRead`
+A caller whose signal is already aborted throws before joining or creating the shared request, so it neither starts an account request nor counts as a caller.
+
 The shared request now has its own controller and a count of joined callers. A caller leaving does not abort the request while another caller still waits (another window, or the refresh that replaced the cancelled poll with the same grant and headers); the request aborts only when the last caller has left, and the slot is cleared at once so a caller arriving after that starts a fresh request instead of joining one that is being cancelled.
 
 ### `packages/credentials/deepseek-account/src/notifications.ts:readNotifications`

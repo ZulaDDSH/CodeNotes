@@ -1,0 +1,7 @@
+# client-ui-voice-input code notes
+
+## packages/experimental/client-ui-voice-input/src/client/VoiceInput.tsx:VoiceInput (finding 403)
+
+- `packages/experimental/client-ui-voice-input/src/client/VoiceInput.tsx:VoiceInput` - The automatic stop used only the Host duration limit, while the Host byte limit was checked after encoding, so a deployment whose WAV byte cap was tighter lost the whole recording at the too-large error. `start` now stores the tighter of the two limits as the recording's limit (`recordingLimitSeconds`), and both the automatic stop timer and `Recording::stop` use it, so the capture ends at the budget and the transcript of that audio is kept. Decision: the recording is cut at the budget (audio beyond it is discarded) rather than warned about mid-recording; the post-encode size check stays as a backstop. Limit: the UI does not show the effective limit before or during capture; that disclosure is not implemented.
+- `packages/experimental/client-ui-voice-input/src/client/audio.ts:recordingLimitSeconds` - Pure derivation: `min(maxDurationSeconds, (maxAudioBytes - 44) / 32000)` for 16 kHz mono PCM16 WAV (44-byte header, 2 bytes per sample). The derivation matches `Recording::stop`'s sample count `floor(seconds * 16000)`, so the encoded WAV never exceeds `maxAudioBytes`. A byte cap below 46 gives a near-zero limit, which the Host also accepts; that deployment is misconfigured and yields an empty recording.
+- Persisted shape and Host protocol: unchanged. The Host still validates duration and byte size on every request.

@@ -1,0 +1,27 @@
+# forge-session code notes
+
+`packages/experimental/forge-session/src/commands.ts:ownChangeRequestUrls`: the own-URL scan searched all of the output for JSON-shaped `"url": ".../pull/N"` members, so a pull request description (after the `--` separator) or a nested object's URL bound an unrelated change request. The parser now reads output that parses as one JSON value and accepts only its top-level `url`; human-readable output keeps the `url:` line and bare-URL-line rules before the `--` separator and no longer scans for JSON members. Covered by `packages/experimental/forge-session/tests/commands.spec.ts`.
+
+`packages/experimental/forge-session/src/commands.ts:commandEvidence`: create detection matched `gh pr create` or `gh pr new` anywhere in the command text, so a quoted or echoed example classified a command as creating a change request, and every URL its output printed then bound as created. Detection now tokenizes the command with shell-quote and requires `gh pr create|new` to begin a simple command (after environment assignments and `env`), so quoted words and arguments of other commands do not count; newlines count as separators. Commands that shell-quote cannot tokenize get no create evidence, which fails closed. `view`, `edit`, `checkout` and `git push` still classify by text and remain open to the same quoted-example mismatch.
+
+`packages/experimental/forge-session/src/commands.ts:createdChangeRequestUrls`: a create result binds only the URLs that stand alone on their own line, which is how `gh pr create` prints the new change request, so URLs printed by other commands joined to the same command with `&&` or `;` no longer bind as created. A command that prints a bare pull request URL of its own on a line still binds it, which is a known limit.
+
+`packages/experimental/forge-session/src/projection.ts:forgeChangeRequestsProjection`: the fold changed for stored shell results, so `stateVersion` moves from 4 to 5 and the stored checkpoints fold again from their logs, as the 3 to 4 change did for program dispatches. A checkpoint row with another `ver` is not served, so the key refolds the full stored log on the next read and bindings from the old fold drop out; dismissals are logged events, so the refold reapplies them.
+
+`packages/experimental/forge-session/src/limiter.ts:Limiter::run`: each push started its own lookup at once, and each numeric reference started one too, so a large multi-branch push or a burst of pushes could start many `gh` processes and GraphQL requests together; the discovery set bounded shutdown only. `Limiter` runs at most `concurrency` tasks at a time in call order, refuses a call that would wait behind `maxWaiting` others, and drops a queued call when its signal aborts, so a closed Session's waiting work never starts. Both branch discovery and reference lookups share one limiter, built in `packages/experimental/forge-session/src/index.ts:ForgeSessionService::init`.
+
+`packages/experimental/forge-session/src/index.ts:ForgeSessionService::discover`: a push of a branch that arrives while that branch's lookup for the same Session and repository is still running now sets a flag, and the running lookup runs once more after it settles, so the second lookup sees the remote state after the later push. Earlier code started one lookup per push, and repeated pushes stacked lookups. Coalescing keeps the final state and never drops the newer push, which a plain skip would do. The lookup deadline includes time spent waiting for a limiter slot.
+
+`packages/experimental/forge-session/src/reference-lookup.ts:observeReferences`: each numeric reference lookup runs through the shared limiter, so a burst of completed calls no longer starts unbounded `gh` processes. Covered by `packages/experimental/forge-session/tests/service.spec.ts` (coalescing and the concurrency bound).
+
+## packages/experimental/forge-session/src/commands.ts:commandEvidence
+
+Heredoc bodies are removed (`HEREDOC`) before any classification, so a line such as `gh pr create` or `git push` inside `cat <<EOF ... EOF` is document text and no longer binds a change request. Create detection also reads past shell keywords (`if`, `then`, `do`, `while`, `!`, `{`, `time`, `command`, ...) and into `bash|sh|zsh|dash -c '<script>'`, which were missed before. Heuristic limits left as they are: `gh pr create` inside a double-quoted command substitution (`echo "$(gh pr create)"`), `gh.exe`, nested interpreters deeper than the `-c` word, `gh pr create --help` and `--dry-run` (they classify as create but print no pull URL), and a create command that also echoes a pull URL alone on a line (`createdChangeRequestUrls` cannot tell it from gh's own output). The reference and push forms still match command text, as documented on the function.
+
+## packages/experimental/forge-session/src/commands.ts:createsChangeRequest
+
+Reads shell words through `shell-quote`. A leading `gh` is required after assignments, shell keywords and `env`; flags between `gh` and `pr` (`gh -R o/r pr create`) are not accepted by gh itself, so they are not handled.
+
+## packages/experimental/forge-session/src/commands.ts:createdChangeRequestUrls
+
+Only a pull request URL alone on a line counts. JSON output is not read here (gh prints a plain URL for create); the `url` field of top-level JSON is read by `topLevelUrl` for the view, edit and checkout forms only, and non-object or array JSON yields no URLs.

@@ -7,3 +7,11 @@
 `packages/client/ui-model-selection/src/client/index.ts:apply` (finding 222, popup entry): after a successful `/model` selection that left `defaultNotSaved` set, `onSelect` sends the `warning.defaultNotSaved` text to the session composer through `conversation.input.for(scope).notify('info', ...)`; the popup has already closed, so the composer notice is the only surface that can still be seen and it never blocks the next action.
 
 `packages/client/ui-model-selection/src/client/ModelSelect.tsx:ModelSelect` (finding 222, seat entry): `submit` marks the selection as the seat's own through `ownSelection`, and once `pending` clears with `defaultNotSaved` set the existing composer Toast shows `warning.defaultNotSaved`; a flag raised by a `/model` selection does not toast here because that entry already notifies, which avoids a double notice. The seat menu closes on selection, so an in-menu strip would never be seen.
+
+## packages/client/ui-model-selection/src/client/directory.ts:ModelDirectory::select
+
+Finding 222. The Host reports `defaultSave: 'unavailable'` when the deployment has no configuration editor or no config entry, so the profile default was never written. The client previously set `defaultNotSaved` only for `'failed'`, so the no-editor case showed a successful switch with no notice. Both `'failed'` and `'unavailable'` now set `defaultNotSaved`. `'pending'` (the Host waited 3 seconds without an answer) still shows nothing: the Host returns before the save settles and no later notification exists, so a late failure remains invisible (PARTIAL, see the report).
+
+## packages/client/ui-model-selection/src/client/ModelSelect.tsx:ModelSelect
+
+The default-not-saved toast carries a `warning.defaultRetry` action that clears the toast and resubmits the current selection. Re-selecting the same model re-runs the Host default save, so a retry either saves the default or shows the notice again. The toast holds for 30 seconds instead of the default hold so the action is reachable. The `/model` command notice in `index.ts` stays a plain info notice without an action (the command path has no action surface).

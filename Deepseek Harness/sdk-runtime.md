@@ -11,3 +11,5 @@ Automatic Office discovery (127): an invalid cache is ignored with a stderr warn
 Explicit download (128): `downloadResource` treats a present but invalid completed directory as damaged and moves it to a unique `.<kind>-damaged-*` sibling with `rename` (atomic, so two repairing processes cannot both move it; the loser sees ENOENT and proceeds), then downloads from the verified archives and removes the damaged copy. Validity is re-checked immediately before the move so a copy another process just repaired is not moved. Ceiling: a repair by process B that lands between process A's recheck and A's move can still make A move B's fresh copy; A then republishes, so the end state is valid, but B's returned path can be momentarily absent. A cross-process lock is the upgrade if this is observed.
 
 Python consumers are unchanged and unverified here (no Python on the review machine); they already compare the marker and files.
+
+`python/sdk-runtime/runtime-bootstrap.mjs:downloadResource`: the cached resource is validated once with `resourceProblem` and quarantined on a problem; the earlier code ran the same check twice back to back with no suspension between them.

@@ -1,0 +1,17 @@
+# product-analytics code notes
+
+## packages/client/product-analytics/src/index.ts:ProductAnalytics::report
+
+Findings 375-377 and 379 (Host intake part). Finding 375 is rejected as a documented limit: the package README and the Config doc state that collection is application-owned with no user-facing control, and the Settings form is deliberately hidden by `configure({ auto: false })`, so no control exists today. The decision taken in this pass is to keep the shipped default (`enabled: true`) and the hidden form unchanged, because adding a disclosure and a persistent control means a new Desktop settings surface outside this package. Finding 376: the identity lookup is bounded by `settleWithin` with `IDENTITY_DEADLINE_MILLIS` (5 seconds, matching the environment query default); on expiry the event is emitted without `device_id` and `user_id`, the same omission used for a rejected lookup, and the late result is discarded. Finding 376: `ProductAnalytics::trackIdentity` counts provider calls until each one settles rather than until the deadline, so `MAX_IDENTITY_LOOKUPS` (64) bounds stalled provider calls over time; at the cap no provider call is made and the event is emitted without identity fields. Finding 376: at most `MAX_PENDING_REPORTS` (256) reports may await identity or environment at once; a report beyond the cap is dropped without retaining its payload and without a drop counter, so the pending reports are bounded by the cap rather than by the event rate. Finding 377: `policyGeneration` advances on every `loader/volatile-update` observed while collection is disabled, so a report admitted before a disable is discarded at submission even when the policy was re-enabled during its wait; this relies on Loader emitting that event after each volatile update, as the existing policy watchers already do. Finding 379: string attribute values longer than `MAX_STRING_ATTRIBUTE_BYTES` (256 UTF-8 bytes) are replaced with the fixed marker `[oversized]` before emission, so the original contents are never queued; the replacement is not counted or logged. Finding 379 remainder: an encoded-byte budget for the OTel queue is not implemented here; it is deferred as described under `ProductTelemetry::emit`.
+
+## packages/client/product-analytics/src/index.ts:settleWithin
+
+Finding 376. The helper resolves with `undefined` at the deadline and clears its timer on either outcome, so a completed lookup does not leave a timer behind. It does not cancel the underlying work; the lookup's own settlement is tracked by `ProductAnalytics::trackIdentity`.
+
+## packages/client/product-analytics/src/index.ts:ProductAnalytics::trackIdentity
+
+Finding 376. The outstanding count increments only after the provider call returns, so a synchronous throw from `getDeviceIdentity` leaves the count unchanged and falls through to the existing report-level failure log. The count decrements when the lookup settles, whether it fulfils or rejects, so a stalled provider holds at most `MAX_IDENTITY_LOOKUPS` slots.
+
+## packages/host/product-telemetry-otel/src/index.ts:ProductTelemetry::emit
+
+Finding 379, deferred. The exporter bounds queued records by count (`maxQueueSize`) through the OTel SDK, and no encoded-byte budget is enforced here. A single record is bounded by the client sanitizer and the Host attribute cap, not by a queue byte budget. Adding a byte budget needs a queue-admission design (which records to drop, and whether to count them) that is not decided in this pass; this is recorded as NEEDS NOMAD.

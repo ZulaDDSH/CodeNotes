@@ -7,3 +7,5 @@
 ## packages/goal/goal/src/index.ts:GoalService::refundRound
 
 `packages/goal/goal/src/index.ts:GoalService::refundRound`: Finding 134. Writes the `refund` change for the latest admitted round through the same `commit` path as every other mutation, keeping the process-local activation as it is, so a refund never arms or disarms continuation. The caller names the exact current ref; the service reads the round from its own projection.
+
+`packages/goal/goal/src/index.ts:GOAL_REFUND_CHANGE_VERSION`: dropped from the plugin entry re-export. Only this package's `fold.ts` and `runtime.ts` use the constant, and the entry's value exports are limited to the Loader four and the Service classes.

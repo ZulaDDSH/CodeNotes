@@ -13,3 +13,23 @@
 `packages/identity/anonymous-user-id/src/index.ts:statIfPresent`: returns undefined when the path is gone or cannot be read; the caller retries instead of failing the lock acquisition.
 
 `packages/identity/anonymous-user-id/src/index.ts:removeStaleLock`: removes a lock only when the file's inode and mtime still match the stale observation, so a fresh lock written by another process is never removed; a failure to remove it returns and the loop retries.
+
+### `packages/identity/anonymous-user-id/src/index.ts:surface`
+
+Best-effort file handling used to swallow every error, so a home that could not be read, locked or written left no trace of why the id did not persist. Each fs failure now goes through `surface`, which stays silent only for the codes that mean the expected thing for that step and otherwise hands a one-line message with the error to `AnonymousUserIdOptions.onFailure`. The repo's idiom for a library without a Context is an owner-supplied callback (`onFailure`, `onReplayDegrade`, `onSpillFailure`): `llm-deepseek`, `session-telemetry-otel` and `command-feedback` pass `ctx.logger.warn`; a bare caller gets `reportToStderr`, as `subprocess-local` does for spills. The id is still returned in every case, so reporting never makes the call fatal; a reporter that throws is the caller's fault and is not contained.
+
+### `packages/identity/anonymous-user-id/src/index.ts:readPersistedId`
+
+Silent codes: `ENOENT` (no file yet, the first launch) and `ENOTDIR` (a parent is a file, so no id can exist; the later `mkdir` reports the real obstacle). Anything else (`EACCES`, `EISDIR`, `EIO`) is reported and the caller mints and publishes a fresh id as before.
+
+### `packages/identity/anonymous-user-id/src/index.ts:statIfPresent`
+
+Silent code: `ENOENT` (the lock vanished between the create attempt and the stat, so the loop retries). Other stat failures are reported and still treated as "no lock to age", so the loop retries until the timeout.
+
+### `packages/identity/anonymous-user-id/src/index.ts:removeFile`
+
+Shared by stale-lock removal, lock release and temp-file cleanup, which each used to let a failed `rmSync` either vanish or throw out of `getOrCreateAnonymousUserId`. `rmSync` with `force` already ignores `ENOENT`; `EBUSY` and `EPERM` are the lock-contention codes (a Windows process still holds the file) and stay silent because the lock loop retries; every other code is reported. None of them is thrown.
+
+### `packages/identity/anonymous-user-id/src/index.ts:publishId`
+
+`mkdirSync` and the temp write or rename failures mean the home is not writable, so the id lives only in memory for this run. No code is expected there, so every one is reported (the home path and code identify an unwritable or read-only home). Replaces the earlier empty returns.

@@ -925,9 +925,16 @@
 - `params.options`: Retention overrides, scan root, directory to keep and current time.
 - `returns`: How many files were removed and how many bytes were freed.
 
+### `packages/subprocess/subprocess-local/src/retention.ts:reportSweepFailureToStderr`
+- `description`: Writes one stderr line for a sweep failure when the owner supplies no reporter.
+- `params.error`: The `node:fs` failure.
+- `params.step`: The sweep step that failed.
+- `params.path`: The entry the step acted on.
+
 ### `packages/subprocess/subprocess-local/src/retention.ts:sweepSpillFilesThrottled`
-- `description`: Starts a background sweep unless one is running or the sweep interval has not passed; failures are ignored.
+- `description`: Starts a background sweep unless one is running or the sweep interval has not passed; a failed sweep is reported through the reporter.
 - `params.keepDirectory`: Spill directory that must not be removed.
+- `params.onFailure`: Receives an unexpected sweep failure.
 
 ### `packages/team/agent-team/src/index.ts:TeamService.pendingHistoricalMessages`
 - `description`: Lists historical team messages of the caller's root Session that are not yet acknowledged.

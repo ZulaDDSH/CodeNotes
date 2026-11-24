@@ -863,12 +863,46 @@
 ### `packages/storage/storage-sqlite/src/schema.ts:openDatabase`
 - `params.exclusive`: When true, ownership of the database file is claimed so another process cannot open it; defaults to true.
 
+### `packages/subagent/subagent/src/catalog.ts:catalogChild`
+- `description`: Keyed read of one child in a parent catalog state; the ordered child list is never read.
+- `params.state`: Parent catalog fold state.
+- `params.childId`: Child Session id to look up.
+- `returns`: The child's name (undefined for a historical unnamed child), or undefined when the id is not in the catalog.
+
+### `packages/subagent/subagent/src/catalog.ts:catalogHasName`
+- `description`: Keyed check whether a parent catalog already holds a sibling name.
+- `params.state`: Parent catalog fold state.
+- `params.name`: Candidate sibling name.
+- `returns`: True when a committed child holds the name.
+
 ### `packages/subagent/subagent/src/external-cwd.ts:assertExternalCwdWithinParentWorkspace`
 - `description`: Requires an external subagent's working directory to resolve inside the parent Session's workspace or its writable roots, unless the sandbox allows full access.
 - `params.ctx`: Host context providing the sandbox policy.
 - `params.session`: Parent Session whose policy applies.
 - `params.cwd`: Requested working directory.
 - `returns`: Resolves when allowed; throws a SubagentError otherwise.
+
+### `packages/subagent/subagent/src/keyed-trie.ts:TrieNode`
+- `description`: Plain-JSON node of a persistent string-keyed hash trie; each slot holds a child node or a leaf of key/value entries.
+
+### `packages/subagent/subagent/src/keyed-trie.ts:trieGet`
+- `description`: Reads one key from an immutable trie in time bounded by the trie depth.
+- `params.root`: Trie root, which is read-only.
+- `params.key`: Key to look up.
+- `returns`: The stored value, or undefined when the key is absent.
+
+### `packages/subagent/subagent/src/keyed-trie.ts:trieSet`
+- `description`: Stores one key without modifying the input root, copying only the nodes along the key's path.
+- `params.root`: Trie root, which is never modified.
+- `params.key`: Key to store; an existing key takes the new value.
+- `params.value`: Value to store.
+- `returns`: A new root that shares every node off the key's path.
+
+### `packages/subagent/subagent/src/keyed-trie.ts:trieSchema`
+- `description`: Checkpoint schema for a trie: exact shape per level, at most eight levels, and every key on its own hash path.
+
+### `packages/subagent/subagent/src/names.ts:CommittedNames`
+- `description`: A creator's committed sibling names; `ordinal` is the count of its contiguous committed `agent-1` to `agent-N` prefix.
 
 ### `packages/subprocess/subprocess-local/src/retention.ts:MIN_SPILL_AGE_MS`
 - `description`: Youngest age in milliseconds at which a spill file may be removed.

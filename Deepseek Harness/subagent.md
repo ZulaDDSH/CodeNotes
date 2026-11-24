@@ -50,15 +50,13 @@ packages/subagent/subagent/src/index.ts:SubagentRuntime::init (finding 345, dorm
 
 Finding 345, strict O(path). The state now carries two persistent keyed indexes beside the event list: `children` (child id to its name, `''` for an unnamed historical child) and `names` (name to the child id that holds it), plus `agentOrdinal`, the largest k for which `agent-1` through `agent-k` are all committed. They are maintained inside `apply`, so every consumer reads the state at the Session cursor instead of scanning the chunked list. The per-child entry is the parent pointer in the sense that a creator walk resolves a child id to its row in the creator's catalog by key. The event payload, the wire view and `appended` are unchanged; the chunked list stays the ordered source for the wire view.
 
+The keyed reads are `catalogChild` (child id to `{ name }`, or undefined when absent, so the UNAUTHORIZED "absent from its creator catalog" check is unchanged) and `catalogHasName`; both serve the live and the dormant creation-ancestry hop and sibling-name reservation. None of them touch `head`; `catalog.spec.ts` replaces `head` with an object that throws on any access to prove it.
+
 ### `packages/subagent/subagent/src/catalog.ts:subagentCatalogProjectionDefinition`
 
 Finding 345, strict O(path): `stateVersion` is 8. A version-7 checkpoint row has no index, and building one from its list would be the O(catalog) scan this change removes, so the registry's existing rule applies: a row whose `ver` differs is discarded and the key refolds from the full log once. Downgrade is the same in the other direction (an older reader discards a version-8 row). The view-compatibility test that reused a version-7 checkpoint now asserts the version-7 row is discarded and the version-8 row plus suffix replay equals a full replay. `apply` keeps the old failure rule: an invalid own fact throws and rejects restoration.
 
-### `packages/subagent/subagent/src/catalog.ts:catalogChild`
-
-Finding 345: keyed read of one child's row in a catalog state, `{ name }` or undefined when the id is absent. It backs both the live creation-ancestry hop and the dormant hop, so the UNAUTHORIZED "absent from its creator catalog" check is unchanged. `catalogHasName` and `SubagentCatalogState::agentOrdinal` back sibling-name reservation. None of them touch `head`; `catalog.spec.ts` replaces `head` with an object that throws on any access to prove it.
-
-### `packages/subagent/subagent/src/keyed-trie.ts:trieSet`
+### `packages/subagent/subagent/src/keyed-trie.ts:insert`
 
 Finding 345: a persistent string-keyed map whose nodes are plain JSON, because checkpoint rows must be plain JSON and `apply` must not mutate a previous state (`appended(prev, next)` and checkpoint seeding hold both). It is a 16-way hash trie over a 32-bit FNV-1a hash, eight nibble levels deep, so the checkpoint nests at most nine levels (finding 346 limits recursive depth). A set copies one node per level along the key's path and shares every other node, so an append costs O(depth * 16) independent of the catalog size. A slot holds either a one-entry leaf or a child node; a second key in a leaf's slot splits it one level down, and only after all eight nibbles are used does a leaf hold several keys (a full 32-bit collision), which then costs a scan of that bucket. Ceiling: names and ids are not attacker-chosen hash inputs in this host, so the bucket scan is accepted. `trieSchema` validates exact shape per level and, once at restore, that each entry sits on its hash path, so a corrupt row cannot hide a key from lookup.
 

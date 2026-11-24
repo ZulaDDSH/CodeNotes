@@ -10,8 +10,20 @@
 
 ## packages/client/ui-model-selection/src/client/directory.ts:ModelDirectory::select
 
-Finding 222. The Host reports `defaultSave: 'unavailable'` when the deployment has no configuration editor or no config entry, so the profile default was never written. The client previously set `defaultNotSaved` only for `'failed'`, so the no-editor case showed a successful switch with no notice. Both `'failed'` and `'unavailable'` now set `defaultNotSaved`. `'pending'` (the Host waited 3 seconds without an answer) still shows nothing: the Host returns before the save settles and no later notification exists, so a late failure remains invisible (PARTIAL, see the report).
+Finding 222. The Host reports `defaultSave: 'unavailable'` when the deployment has no configuration editor or no config entry, so the profile default was never written. The client previously set `defaultNotSaved` only for `'failed'`, so the no-editor case showed a successful switch with no notice. Both `'failed'` and `'unavailable'` now set `defaultNotSaved`. `'pending'` (the Host waited 3 seconds without an answer) is now followed through `session.defaultSaveOutcome`; see the finding 222 outcome endpoint entry on `ModelDirectory::select` below.
 
 ## packages/client/ui-model-selection/src/client/ModelSelect.tsx:ModelSelect
 
 The default-not-saved toast carries a `warning.defaultRetry` action that clears the toast and resubmits the current selection. Re-selecting the same model re-runs the Host default save, so a retry either saves the default or shows the notice again. The toast holds for 30 seconds instead of the default hold so the action is reachable. The `/model` command notice in `index.ts` stays a plain info notice without an action (the command path has no action surface).
+
+### `packages/client/ui-model-selection/src/client/directory.ts:ModelDirectory::select`
+
+Finding 222 outcome endpoint. A `selectModel` value of `defaultSave: 'pending'` carries a `defaultSaveId`. The directory sets `defaultLate: 'saving'` and follows the save through `session.defaultSaveOutcome` in `ModelDirectory::followDefaultSave`, which repeats while the Host answers `pending` (the Host bounds each wait). A settled `saved` sets `defaultLate: 'saved'`; `failed` and `unavailable` set `defaultNotSaved`, and a rejected call (unknown id) is treated as not saved with the existing retry. The follow-up is dropped when the generation changes (a newer selection, `resetConnected`) or the directory is disposed, so an older save cannot overwrite a newer selection's state. `syncInputs` carries `defaultLate` through both `store.set` calls like `defaultNotSaved`. There is no client-side give-up timer: a save that never settles stays "saving" with its own text and no retry.
+
+### `packages/client/ui-model-selection/src/client/ModelSelect.tsx:ModelSelect`
+
+Finding 222. The own-selection flag now survives while `defaultLate === 'saving'`, so a late failure still raises the retry toast and a late success raises the `warning.defaultSaved` toast; the saving toast uses `warning.defaultSaving` without a retry action. `warning.defaultSaving` and `warning.defaultSaved` are in all eight dictionaries and were appended to `out-locales.json` by hand, like `warning.defaultNotSaved`.
+
+### `packages/client/ui-model-selection/src/client/index.ts:apply`
+
+Finding 222, popup entry. After `select` returns with `defaultLate === 'saving'` the popup has closed, so `onSelect` sends `warning.defaultSaving` to the composer and watches the directory store once; when `defaultLate` leaves `saving` it sends `warning.defaultSaved` (late success) or `warning.defaultNotSaved` (late failure), and sends nothing when a newer selection or a reset cleared it.

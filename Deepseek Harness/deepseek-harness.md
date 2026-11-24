@@ -1326,3 +1326,10 @@ The event JSDoc carries description, `@mode emit` and `@param outcome` because t
 
 ### `packages/llm/llm-freebuff/src/index.ts:Config`
 - `idleReapMs`: Idle time in milliseconds after which an unused Freebuff terminal is closed (default 600000).
+
+### `packages/attachment/attachment/src/index.ts:AttachmentStore.readHostFile`
+- `description`: Returns the integrity-verified bytes of a host path this backend owns, opened and hashed through one descriptor so a replacement after the check cannot reach the reader; backends that own no host files answer undefined.
+- `params.hostPath`: Absolute host path a reader is about to open.
+- `params.maxBytes`: Largest file size, in bytes, the caller accepts.
+- `params.signal`: Optional cancellation for backend reads.
+- `returns`: The verified bytes, or undefined when the path is not one of this backend's files.

@@ -1,5 +1,3 @@
 # Workflow PTC: code notes
 
-`packages/workflow/workflow-ptc/src/host.ts:PtcWorkflowRun::disposeChild`: finding 281. A child disposal gets two attempts before its failure is recorded in `cleanupFailures`. The second attempt re-drives the subagent manager's failed handle disposal (see subagent.md, `SubagentManager::dispose`). The record is still removed from `children` once the disposal settles, so a failure is reported, not retried later by the run.
-
-Attempt count: a rejecting child whose manager teardown has already been attempted once by natural settlement is disposed nine times in total, because each workflow attempt re-drives the manager's three-attempt handle disposal. `packages/workflow/workflow-ptc/tests/workflow-ptc.spec.ts` pins that count for the asynchronous rejection case.
+`packages/workflow/workflow-ptc/src/host.ts:PtcWorkflowRun::disposeChild`: finding 281. The workflow calls each child's `run.dispose()` once; the retry layer is the subagent manager's bounded handle disposal (see subagent.md, `SubagentManager::finishDisposal`), so a rejecting child is disposed `TEARDOWN_ATTEMPTS` times in total, not once per workflow attempt. The failure is recorded in `cleanupFailures` and the record is removed from `children`; a later `dispose()` on the same activation re-drives a failed handle disposal through the manager.

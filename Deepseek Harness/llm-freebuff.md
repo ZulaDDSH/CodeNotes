@@ -52,6 +52,8 @@ A reused terminal still shows the previous turn as finished, so a turn only rend
 
 Cancel sends Esc, waits a few seconds for the working indicator to clear and otherwise terminates the terminal. A terminal that stopped working is kept. Either way the cancelled turn is marked consumed (the last chat row id), so a later identical prompt is submitted again instead of being matched to the half-finished row.
 
+A turn aborted before `bind` stored the chat id has no chat to leave behind, so `turn` ends the terminal with `kill` instead of sending Escape.
+
 ### `packages/llm/llm-freebuff/src/adapter.ts:promptOf`
 
 Only the newest user-sourced message is the prompt. System prompt, tools and earlier history are ignored because Freebuff keeps its own history in its chat. A prompt that starts with `/` or `!` is rejected so a user message cannot run a TUI command or a shell line. Images and files are rejected rather than dropped.
@@ -73,6 +75,8 @@ The provider directory entry reports OAuth native authentication so the models s
 The source id is the route id `freebuff`, so the session-header popover (`ui-provider-quota` `ProviderQuotaAction`) lists it and moves it to the top for a session whose model selection is on Freebuff. It is registered through `ctx.inject(['quotaController'])` plus an effect, so the disposer runs with the plugin, and only when `FreebuffWiring.quota` is given: tests and hosts without usage reading pass nothing. Today's hours ride on the `daily` window id (label "Today") as a provider-formatted `valueLabel`, with `usedPercent` kept for the severity colour, and the monthly allowance rides on `monthly`.
 
 The credential read starts PowerShell and compiles a helper with `Add-Type`, so the token (or its absence) is kept in memory only: for the usage TTL when present, 30 s when missing, and dropped on HTTP 401 or 403 so a fresh sign-in is picked up. It is never logged, put in a result or put in an error: errors are fixed strings (`Freebuff usage API returned HTTP N`, `Freebuff usage request failed`), never the thrown message. The usage payload (not the token) is cached for five minutes (`QUOTA_TTL_MS`) and dropped when the credential disappears, so signing out is seen at once. The popover reloads on every open, so the cache is what keeps `/session` from being hit each time.
+
+The cached usage is kept with the token it was read for and is used only for that token, only for five minutes, and only while the clock is before its `resetAt`, so a day rollover, an account switch or a rejected token never serves the previous account or day. The token itself is remembered for five minutes (thirty seconds when absent), so a sign-out or account switch is noticed at the next credential read, not at once.
 
 ### `packages/llm/llm-freebuff/src/quota.ts:quotaWindows`
 
@@ -102,6 +106,8 @@ When the headless screen cannot be created after the terminal started, the termi
 
 A chat id from replay state is used as a directory name and as the `--continue` argument, so it must match `^[\w.-]+$` and may not start with `-` or `.`. A state with any other chat id is ignored and the next older Freebuff reply is tried.
 
+The agent loop stores the whole `finish.replayState` envelope on the assistant message (`{ response: { kind: 'freebuff', ... } }`, the shape `llm-deepseek/src/replay.ts` also reads), so the resume record is read from `replayState.response`. A bare record at the top level of `replayState` is not accepted.
+
 ### `packages/llm/llm-freebuff/src/quota.ts:credentialTarget`
 
 The Credential Manager target is built from the Freebuff config directory (`FREEBUFF_CONFIG_DIR` when absolute, else `~/.config/manicode`), because the CLI names its secret after the credentials file path it actually uses.
@@ -109,3 +115,11 @@ The Credential Manager target is built from the Freebuff config directory (`FREE
 ### `packages/llm/llm-freebuff/src/quota.ts:decodeToken`
 
 The live Credential Manager blob on Windows was checked by shape only and is the bare token (no JSON, no NUL bytes). A blob that starts with `{` is also accepted: the token is `authToken` at the top level or inside one nested object. The token is never printed.
+
+### `packages/llm/llm-freebuff/src/session.ts:Mutex.acquire`
+
+Serialises the spawn and first-submit of new chats so the new chat folder can be matched to its prompt. A waiter races the previous holder against its own abort signal, so an aborted turn stops waiting at once. Its slot is still released only after the previous holder finishes, so the lock stays exclusive.
+
+### `packages/llm/llm-freebuff/src/session.ts:FreebuffSession.drive`
+
+A screen is treated as the signed-out screen only when `loginRequired` is true and `ready` is false. An answer that ends with "run this command to login:" matches a login marker, but every answer screen also shows the ready footer, while the real login screen does not.

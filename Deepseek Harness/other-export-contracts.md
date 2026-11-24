@@ -1062,6 +1062,7 @@
 - `description`: Returns the stored file's path when it still matches the reference's size and SHA-256 digest, caching the verified identity so unchanged files are not rehashed; returns undefined when the file is missing or does not match.
 - `params.root`: Root directory of the verbatim file store.
 - `params.ref`: File reference whose stored object is checked.
+- `params.maxVerifyBytes`: Largest file size, in bytes, that is hashed synchronously when its identity is not cached; larger uncached files get no path.
 - `returns`: The verified path, or undefined.
 
 ### `packages/client/ui-chat/src/client/contract/outline.ts:OutlinePage`
